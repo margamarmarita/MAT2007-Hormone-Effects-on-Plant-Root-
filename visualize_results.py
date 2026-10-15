@@ -1,33 +1,7 @@
 #!/usr/bin/env python3
-"""
-MAT2007 Project - plots of the hormone_analysis_se.cpp results.
+# Visualizations for MAT2007 Project - Statistical Analysis of Root-Hormone: Effect of Phytohormones on Plant 
+#                                      Root Lengths and the Correlations of Change
 
-Reads the CSV files written by the C++ programme (results_summary.csv, ratios_per_accession.csv,
-pairwise_comparisons.csv, correlations.csv) and makes plain bar graphs, dot plots and histograms.
-
-Colours:
-    every condition / hormone has its own colour (same colour in every figure)
-        Control = grey, IAA = orange, ABA = blue, CK = green
-Two kinds of error bars, always in separate panels or at separate heights:
-    black = standard error                    (all data)
-    red   = sub-sampling uncertainty          (std of the 10 subsample means, as in InClass4 / Tutorial4)
-sigma values:
-    sigma = how many uncertainties a value is away from its reference (1 = no effect for the ratios,
-    0 = no difference / no correlation). In the left panels sigma is measured in standard errors, in the
-    right panels in subsample uncertainties. A * marks |sigma| > 3.
-
-Figures (PNG, saved in ./figures):
-    Per condition:  fig1_Control, fig1_IAA, fig1_ABA, fig1_CK     (histogram of root length + mean with error bars)
-    Overall:        fig2_mean_root_length       (bar graph, all 4 conditions)
-                    fig3_relative_root_length   (bar graph hormone / control, with sigma from 1)
-                    fig4_hormone_differences    (dot plot, with sigma from 0)
-                    fig5_correlations           (dot plot of Pearson r, with sigma from 0)
-                    fig6_correlation_scatter    (scatter plots: accession response to one hormone vs another)
-
-Run:  python visualize_results.py            (CSV files in the same folder)
-      python visualize_results.py --dir csv_folder --out simple_figures
-Needs: numpy, pandas, matplotlib
-"""
 
 import argparse
 import os
@@ -45,17 +19,16 @@ HORMONES = CONDITIONS[1:]
 TRL_COL = {"Control": "TRL_control", "IAA": "TRL_IAA", "ABA": "TRL_ABA", "CK": "TRL_CK"}
 RATIO_COL = {"IAA": "ratio_IAA", "ABA": "ratio_ABA", "CK": "ratio_CK"}
 
-# One colour per condition (colour-blind friendly palette), used in every figure
+# Use the same colour for each condition throughout the figures
 COLORS = {"Control": "#8C8C8C", "IAA": "#E69F00", "ABA": "#0072B2", "CK": "#009E73"}
 
-SE_COLOR = "black"   # error bars: standard error
-SUB_COLOR = "red"    # error bars: sub-sampling uncertainty
+SE_COLOR = "black"   # Standard error bars
+SUB_COLOR = "red"    # Subsampling uncertainty bars
 SIGMA_THRESHOLD = 3.0
 
 
-# ---------------------------------------------------------------------------------------------
-# Loading
-# ---------------------------------------------------------------------------------------------
+
+# LOADING THE DATA
 def load_data(folder):
     names = {"summary": "results_summary.csv", "acc": "ratios_per_accession.csv",
              "pair": "pairwise_comparisons.csv", "corr": "correlations.csv"}
@@ -85,8 +58,7 @@ def get_row(summary, quantity, condition):
 
 
 def save(fig, outdir, name):
-    """Saves the figure. Retries a few times because on Windows a synced folder (OneDrive) or an
-    antivirus scan can block a newly created file for a moment (OSError: [Errno 22])."""
+    """Save a figure and retry if Windows temporarily blocks the file"""
     fig.tight_layout()
     path = os.path.join(os.path.abspath(outdir), name + ".png")
     for attempt in range(1, 6):
@@ -104,14 +76,12 @@ def save(fig, outdir, name):
 
 
 def sigma_text(sig, signed=True):
-    """Text for a sigma value, with a * if it is larger than 3."""
+    """Format a sigma value and add a * when it is greater than the chosen threshold"""
     text = f"{sig:+.1f} σ" if signed else f"{abs(sig):.1f} σ"
     return text + (" *" if abs(sig) > SIGMA_THRESHOLD else "")
 
 
-# ---------------------------------------------------------------------------------------------
-# PART 1 - one figure per condition: histogram + mean with both error bars
-# ---------------------------------------------------------------------------------------------
+# PART 1 - make a histogram for each condition and show its mean with both error bars
 def fig_condition(cond, data, outdir):
     trl = data["acc"][TRL_COL[cond]].dropna()
     row = get_row(data["summary"], "TRL_mm", cond)
@@ -120,7 +90,7 @@ def fig_condition(cond, data, outdir):
     counts, _, _ = ax.hist(trl, bins=15, color=COLORS[cond], edgecolor="black")
     top = counts.max()
 
-    # Mean as a dot, with the two error bars at two different heights so they do not overlap
+    # Show the mean as a dot and place the two error bars at different heights to keep them separate
     ax.errorbar(row["mean_full"], top * 1.10, xerr=row["mean_se"], fmt="o", color=SE_COLOR,
                 capsize=5, label=f"Standard error: {row['mean_full']:.2f} ± {row['mean_se']:.2f}")
     ax.errorbar(row["mean"], top * 1.25, xerr=row["mean_unc"], fmt="o", color=SUB_COLOR,
@@ -134,13 +104,11 @@ def fig_condition(cond, data, outdir):
     save(fig, outdir, f"fig1_{cond}")
 
 
-# ---------------------------------------------------------------------------------------------
-# PART 2 - overall figures
-# ---------------------------------------------------------------------------------------------
+# PART 2 - figures comparing the different conditions and hormone responses
 def two_panel_bars(labels, se_vals, se_errs, sub_vals, sub_errs, ylabel, title, name, outdir, digits,
                    ref=None, se_sigmas=None, sub_sigmas=None):
-    """Bar graph with error bars: left panel = standard error, right panel = subsample uncertainty.
-    Every bar has the colour of its condition. Optional sigma values are written above each bar."""
+    """Compare the means in two panels, using standard errors on the left and subsampling uncertainty on the right
+    Each condition keeps its own colour, and optional sigma values are shown above the bars"""
     fig, axes = plt.subplots(1, 2, figsize=(9, 4.3), sharey=True)
     panels = [(axes[0], se_vals, se_errs, se_sigmas, SE_COLOR, "Mean ± standard error"),
               (axes[1], sub_vals, sub_errs, sub_sigmas, SUB_COLOR, "Mean ± subsample uncertainty")]
@@ -171,14 +139,15 @@ def two_panel_bars(labels, se_vals, se_errs, sub_vals, sub_errs, ylabel, title, 
 
 def two_panel_dots(labels, face_colors, edge_colors, se_vals, se_errs, sub_vals, sub_errs, xlabel, title,
                    name, outdir, ref, se_sigmas, sub_sigmas, signed, digits=3):
-    """Dot plot with horizontal error bars: left panel = standard error, right panel = subsample uncertainty.
-    Each dot has the colour of the first hormone inside and the colour of the second hormone as its edge."""
+    """Compare values and their horizontal error bars in two panels
+    The left panel uses standard errors and the right panel uses subsampling uncertainty
+    Each dot uses the first hormone's colour inside and the second hormone's colour around the edge"""
     n = len(labels)
     fig, axes = plt.subplots(1, 2, figsize=(10, 2.4 + 0.9 * n), sharex=True, sharey=True)
     panels = [(axes[0], se_vals, se_errs, se_sigmas, SE_COLOR, "Value ± standard error"),
               (axes[1], sub_vals, sub_errs, sub_sigmas, SUB_COLOR, "Value ± subsample uncertainty")]
 
-    # Shared x-limits with some room for the text
+    # Set shared x-axis limits with enough space for the labels
     lo = min(min(np.array(v) - np.array(e)) for v, e in [(se_vals, se_errs), (sub_vals, sub_errs)] + [([ref], [0])])
     hi = max(max(np.array(v) + np.array(e)) for v, e in [(se_vals, se_errs), (sub_vals, sub_errs)] + [([ref], [0])])
     pad = 0.25 * (hi - lo)
@@ -194,7 +163,7 @@ def two_panel_dots(labels, face_colors, edge_colors, se_vals, se_errs, sub_vals,
         ax.axvline(ref, color="grey", linestyle="--", zorder=1)
         ax.set_yticks(range(n))
         ax.set_yticklabels(labels)
-        ax.set_ylim(n - 0.5, -0.9)  # first label on top, room above it for the text
+        ax.set_ylim(n - 0.5, -0.9)  # Keep the first label at the top and leave room for its annotation
         ax.set_xlim(lo - pad, hi + pad)
         ax.set_xlabel(xlabel)
         ax.set_title(ptitle)
@@ -206,7 +175,7 @@ def two_panel_dots(labels, face_colors, edge_colors, se_vals, se_errs, sub_vals,
 
 
 def fig_correlation_scatter(data, outdir):
-    """One scatter plot per hormone pair: every dot is one accession (its response to hormone A vs hormone B)."""
+    """Create one scatter plot for each hormone pair to compare their responses across accessions"""
     acc, corr = data["acc"], data["corr"]
     n = len(corr)
     fig, axes = plt.subplots(1, n, figsize=(5.2 * n, 5))
@@ -217,13 +186,13 @@ def fig_correlation_scatter(data, outdir):
         d = acc[[RATIO_COL[a], RATIO_COL[b]]].dropna()
         x, y = d.iloc[:, 0].to_numpy(), d.iloc[:, 1].to_numpy()
 
-        # Dot: fill = hormone on the x-axis, edge = hormone on the y-axis
+        # Use the x-axis hormone for the dot fill and the y-axis hormone for its outline
         ax.scatter(x, y, s=75, facecolor=COLORS[a], edgecolor=COLORS[b], linewidth=1.8, alpha=0.9, zorder=3)
         slope, intercept = np.polyfit(x, y, 1)
         xs = np.linspace(x.min(), x.max(), 50)
         ax.plot(xs, slope * xs + intercept, color="black", linewidth=1.2, zorder=4)
-        ax.axvline(1, color="grey", linestyle=":", linewidth=1.2)  # ratio of 1 = no effect of that hormone
-        ax.axhline(1, color="grey", linestyle=":", linewidth=1.2)
+        ax.axvline(1, color="grey", linestyle=":", linewidth=1.2)  # A ratio of 1 means no effect on the x-axis
+        ax.axhline(1, color="grey", linestyle=":", linewidth=1.2)  # A ratio of 1 means no effect on the y-axis
 
         sig_se = r["pearson_r_full"] / r["pearson_r_se"]
         sig_sub = r["pearson_r"] / r["pearson_r_unc"]
@@ -260,14 +229,14 @@ def main():
 
     print("PART 2 - overall figures")
 
-    # Mean total root length, all four conditions
+    # Compare the mean total root length for the control and all three hormones
     rows = [get_row(summary, "TRL_mm", c) for c in CONDITIONS]
     two_panel_bars(CONDITIONS,
                    [r["mean_full"] for r in rows], [r["mean_se"] for r in rows],
                    [r["mean"] for r in rows], [r["mean_unc"] for r in rows],
                    "Total root length (mm)", "Mean total root length", "fig2_mean_root_length", args.out, digits=2)
 
-    # Relative root length (hormone / control) - main result, with sigma from 1
+    # Compare relative root length under each hormone with the control, where a ratio of 1 means no effect
     rows = [get_row(summary, "ratio_to_control", h) for h in HORMONES]
     two_panel_bars(HORMONES,
                    [r["mean_full"] for r in rows], [r["mean_se"] for r in rows],
@@ -277,7 +246,7 @@ def main():
                    digits=3, ref=1.0,
                    se_sigmas=[r["sigma_from_1_se"] for r in rows], sub_sigmas=[r["sigma_from_1"] for r in rows])
 
-    # Scatter plots of the correlations
+    # Make scatter plots to compare the responses to pairs of hormones
     fig_correlation_scatter(data, args.out)
 
     print(f"\nDone. Figures are in '{args.out}/'")
