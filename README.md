@@ -36,7 +36,7 @@ It calculates statistics such as mean (both overall and subsample) root length, 
 
 **Output**
 
-After running both scripts, the user should have the .CSV files (specified above) from the C++ code and the figures from the Python code saved to their device. The resulting visualizations can be compared to those in the linked report to ensure correct execution of the scripts.
+After running both scripts, the user should have the .CSV files (specified above) from the C++ code and the figures from the Python code saved to their device.
 
 **Report**
 
